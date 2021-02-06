@@ -61,7 +61,7 @@ public struct Dataset: Codable, Hashable, Equatable {
         }
     }
     
-    static public func parseCovidData(csvString:String, type:DatasetType) -> Dataset {
+    static public func parseCovidData(csvString:String, type:DatasetType, country:String?) -> Dataset {
         let lines = csvString.components(separatedBy: .newlines)
         var locations = [Location]()
         guard let headerRow = lines.first else { return Dataset(type: type, locations: locations, source:.johnsHopkins) }
@@ -73,7 +73,12 @@ public struct Dataset: Codable, Hashable, Equatable {
             if comps.count != headers.count {
                 print("Warning: incomplete CSV... number of entries does NOT match number of dates in header")
             }
-            var covidLocation = Location(state: comps[stateIndex].count > 0 ? comps[stateIndex] : nil, country: comps[countryIndex])
+            let currentCountry = comps[countryIndex]
+            
+            if country != nil && currentCountry != country { continue }
+            let currentState = comps[stateIndex]
+           
+            var covidLocation = Location(state: currentState.count > 0 ? currentState : nil, country: currentCountry)
             var cases = [DailyCaseCount]()
             let firstDate = headers[firstDateIndex]
             var date = cachedDateParser.date(from: firstDate) ?? Date()
@@ -94,13 +99,23 @@ public struct Dataset: Codable, Hashable, Equatable {
         let lines = csvString.components(separatedBy: .newlines)
         var lookupByState = [String:Location]()
         let dailyEntriesByState = lines.dropFirst()
+        
+        var cachedDates: [String:Date] = [:]
+        
         for dailyEntry in dailyEntriesByState {
             let fields = dailyEntry.componentsFromCSVLine()
             let dateStr = fields[0]
-            let date = cachedNYTimesDateParser.date(from: dateStr)!
+            let cached = cachedDates[dateStr]
+            var date: Date?
+            if cached == nil {
+                date = cachedNYTimesDateParser.date(from: dateStr)
+                cachedDates[dateStr] = date
+            } else {
+                date = cached!
+            }
             let state = fields[1]
             let cases = caseType == .confirmedCase ? Int(fields[3])! : Int(fields[4])!
-            let caseCount = DailyCaseCount(date: date, count: cases, dateString: dateStr)
+            let caseCount = DailyCaseCount(date: date ?? Date(), count: cases, dateString: dateStr)
             
             if lookupByState[state] != nil {
                 lookupByState[state]?.cases.append(caseCount)

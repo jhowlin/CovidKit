@@ -18,13 +18,13 @@ public class CovidNetwork {
     static public let shared = CovidNetwork()
     let network = Network()
 
-    public func fetchDatasetType(_ type:DatasetType, completion: @escaping (Dataset?, Error?)->()) {
+    public func fetchDatasetType(_ type:DatasetType, country:String? = nil, completion: @escaping (Dataset?, Error?)->()) {
 
         let urlRequest = CovidNetwork.urlRequestForJohnsHopkinsDataset(type)
         var request = NetworkRequest<Dataset>(identifier: "covid-\(type.endpoint)-Time", urlRequest: urlRequest)
         request.parser = { data in
             guard let data = data, let csvString = String(data: data, encoding: .utf8) else { throw NetworkError.noParserProvided }
-            return Dataset.parseCovidData(csvString: csvString, type:type)
+            return Dataset.parseCovidData(csvString: csvString, type:type, country:country)
         }
         request.displayLabel = "\(type.endpoint) Time Series"
         
